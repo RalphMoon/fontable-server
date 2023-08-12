@@ -1,0 +1,24 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "commonjs": true,
+    "es6": true,
+    "node": true
+  },
+  "extends": [
+    "airbnb-base",
+    "eslint:recommended",
+    "plugin:node/recommended",
+    "prettier"
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest"
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-use-before-define": "off",
+    "no-process-exit": "off",
+    "import/no-extraneous-dependencies": "warn"
+  }
+}
