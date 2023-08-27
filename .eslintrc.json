@@ -19,6 +19,7 @@
     "no-unused-vars": "warn",
     "no-use-before-define": "off",
     "no-process-exit": "off",
+    "no-useless-catch": "off",
     "import/no-extraneous-dependencies": "warn"
   }
 }
