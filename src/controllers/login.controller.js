@@ -1,12 +1,15 @@
+const createError = require("http-errors");
+
 const loginService = require("../services/login.service");
 
 exports.createUser = async (req, res, next) => {
   try {
-    const { name, email, picture } = req.body.decodedToken;
-    const user = await loginService.createUser({ name, email, picture });
+    const { uid, name, email } = req.body.decodedToken;
 
-    res.status(200).json(user);
+    await loginService.createUser({ uid, name, email });
+
+    res.sendStatus(200);
   } catch (err) {
-    next(err);
+    next(createError(500, "An unexpected error occurred on the server."));
   }
 };
