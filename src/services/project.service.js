@@ -2,18 +2,10 @@ const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
 const ttf2woff = require("ttf2woff");
-const { Path, Glyph, load } = require("opentype.js");
+const { Path, Glyph, Font } = require("opentype.js");
 
 const convertPathToOtfBuffer = async (name, unicodePaths) => {
   try {
-    const resolvedPath = path.resolve(
-      "src",
-      "assets",
-      "fonts",
-      "NotoSans-Medium.otf"
-    );
-    const font = await load(resolvedPath);
-
     const glyphPaths = unicodePaths
       .filter(({ pathString }) => !!pathString)
       .map(({ unicode, pathString }) => {
@@ -66,14 +58,14 @@ const convertPathToOtfBuffer = async (name, unicodePaths) => {
       return glyph;
     });
 
-    glyphs.forEach((glyph) => {
-      const glyphIndex = font.charToGlyphIndex(glyph.name);
-
-      font.glyphs[glyphIndex] = glyph;
-      font.glyphs.glyphs[glyphIndex] = glyph;
+    const font = new Font({
+      familyName: name,
+      styleName: "Medium",
+      unitsPerEm: 1000,
+      ascender: 800,
+      descender: -200,
+      glyphs,
     });
-
-    font.tables.name.fontFamily.en = name;
 
     const buffer = Buffer.from(font.toArrayBuffer());
 
@@ -117,19 +109,24 @@ const convertTtfToWoff = async (filePath) => {
 };
 
 exports.getBufferByFontType = async (name, unicodePaths, fontType) => {
-  let buffer = await convertPathToOtfBuffer(name, unicodePaths);
+  try {
+    let buffer = await convertPathToOtfBuffer(name, unicodePaths);
 
-  if (fontType === "ttf") {
-    const filePath = await convertBufferToTtf(buffer);
+    if (fontType === "ttf") {
+      const filePath = await convertBufferToTtf(buffer);
 
-    buffer = await readFileToBuffer(filePath);
-    fs.unlinkSync(filePath);
-  } else if (fontType === "woff") {
-    const filePath = await convertBufferToTtf(buffer);
+      buffer = await readFileToBuffer(filePath);
+      fs.unlinkSync(filePath);
+    } else if (fontType === "woff") {
+      const filePath = await convertBufferToTtf(buffer);
 
-    buffer = await convertTtfToWoff(filePath);
-    fs.unlinkSync(filePath);
+      buffer = await convertTtfToWoff(filePath);
+      fs.unlinkSync(filePath);
+    }
+
+    return buffer;
+  } catch (err) {
+    console.error(err);
+    throw err;
   }
-
-  return buffer;
 };
