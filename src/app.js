@@ -20,14 +20,13 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cors(corsOptions));
 
 app.use("/users", login);
-app.use("/project", project);
+app.use("/users/:user_id/projects", project);
 
 app.use((req, res, next) => {
   next(createError(404));
 });
 
 app.use((err, req, res, next) => {
-  console.log(err.message);
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
 
