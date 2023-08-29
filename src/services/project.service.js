@@ -4,29 +4,7 @@ const path = require("path");
 const ttf2woff = require("ttf2woff");
 const { Path, Glyph, load } = require("opentype.js");
 
-const { client } = require("../configs/vision.config");
-
-exports.detectText = async (imageUrl) => {
-  try {
-    const matches = imageUrl.match(/^data:(.+);base64,(.+)$/);
-
-    if (!matches) {
-      throw new Error("Invalid data URL");
-    }
-    const buffer = Buffer.from(matches[2], "base64");
-
-    const [result] = await client.documentTextDetection(buffer);
-    const {
-      fullTextAnnotation: { text },
-    } = result;
-
-    return text;
-  } catch (err) {
-    throw err;
-  }
-};
-
-exports.convertPathToFontBuffer = async (unicodePaths) => {
+const convertPathToOtfBuffer = async (name, unicodePaths) => {
   try {
     const resolvedPath = path.resolve(
       "src",
@@ -36,40 +14,42 @@ exports.convertPathToFontBuffer = async (unicodePaths) => {
     );
     const font = await load(resolvedPath);
 
-    const glyphPaths = unicodePaths.map(({ unicode, pathString }) => {
-      const glyphPath = new Path();
+    const glyphPaths = unicodePaths
+      .filter(({ pathString }) => !!pathString)
+      .map(({ unicode, pathString }) => {
+        const glyphPath = new Path();
 
-      const directions = pathString
-        .split("M")
-        .slice(1)
-        .map((stroke) => stroke.trim().split(" Q "));
+        const directions = pathString
+          .split("M")
+          .slice(1)
+          .map((stroke) => stroke.trim().split(" Q "));
 
-      const points = directions.map((direction) =>
-        direction.map((coordinates) => {
-          const positions = coordinates.split(" ");
+        const points = directions.map((direction) =>
+          direction.map((coordinates) => {
+            const positions = coordinates.split(" ");
 
-          return positions.map((position, index) => {
-            if (index % 2 !== 0) {
-              return 800 - parseFloat(position);
-            }
+            return positions.map((position, index) => {
+              if (index % 2 !== 0) {
+                return 800 - parseFloat(position);
+              }
 
-            return parseFloat(position);
+              return parseFloat(position);
+            });
+          })
+        );
+
+        points.forEach((direction) => {
+          const [movePoint, ...qCurvePoints] = direction;
+
+          glyphPath.moveTo(...movePoint);
+
+          qCurvePoints.forEach((qCurvePoint) => {
+            glyphPath.quadraticCurveTo(...qCurvePoint);
           });
-        })
-      );
-
-      points.forEach((direction) => {
-        const [movePoint, ...qCurvePoints] = direction;
-
-        glyphPath.moveTo(...movePoint);
-
-        qCurvePoints.forEach((qCurvePoint) => {
-          glyphPath.quadraticCurveTo(...qCurvePoint);
         });
-      });
 
-      return { unicode, glyphPath };
-    });
+        return { unicode, glyphPath };
+      });
 
     const glyphs = glyphPaths.map(({ unicode, glyphPath }) => {
       const glyph = new Glyph({
@@ -93,7 +73,7 @@ exports.convertPathToFontBuffer = async (unicodePaths) => {
       font.glyphs.glyphs[glyphIndex] = glyph;
     });
 
-    font.tables.name.fontFamily.en = "Test Sans Med";
+    font.tables.name.fontFamily.en = name;
 
     const buffer = Buffer.from(font.toArrayBuffer());
 
@@ -103,7 +83,7 @@ exports.convertPathToFontBuffer = async (unicodePaths) => {
   }
 };
 
-exports.convertBufferToTtf = async (buffer) =>
+const convertBufferToTtf = async (buffer) =>
   new Promise((resolve, reject) => {
     const tempFilePath = path.resolve("src", "assets", "fonts", "TestSans.ttf");
     fs.writeFile(tempFilePath, buffer, (err) => {
@@ -115,7 +95,7 @@ exports.convertBufferToTtf = async (buffer) =>
     });
   });
 
-exports.readFileToBuffer = async (filePath) => {
+const readFileToBuffer = async (filePath) => {
   try {
     const buffer = await fsPromises.readFile(filePath);
 
@@ -125,7 +105,7 @@ exports.readFileToBuffer = async (filePath) => {
   }
 };
 
-exports.convertTtfToWoff = async (filePath) => {
+const convertTtfToWoff = async (filePath) => {
   try {
     const ttf = await fsPromises.readFile(filePath);
     const woff = ttf2woff(ttf);
@@ -134,4 +114,22 @@ exports.convertTtfToWoff = async (filePath) => {
   } catch (err) {
     throw err;
   }
+};
+
+exports.getBufferByFontType = async (name, unicodePaths, fontType) => {
+  let buffer = await convertPathToOtfBuffer(name, unicodePaths);
+
+  if (fontType === "ttf") {
+    const filePath = await convertBufferToTtf(buffer);
+
+    buffer = await readFileToBuffer(filePath);
+    fs.unlinkSync(filePath);
+  } else if (fontType === "woff") {
+    const filePath = await convertBufferToTtf(buffer);
+
+    buffer = await convertTtfToWoff(filePath);
+    fs.unlinkSync(filePath);
+  }
+
+  return buffer;
 };
