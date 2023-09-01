@@ -2,7 +2,10 @@ const createError = require("http-errors");
 
 const User = require("../models/User.model");
 const Project = require("../models/Project.model");
-const { getBufferByFontType } = require("../services/project.service");
+const {
+  convertPathToOtfBuffer,
+  convertOtfBufferToTtfBuffer,
+} = require("../services/project.service");
 
 exports.getProject = async (req, res, next) => {
   try {
@@ -70,9 +73,9 @@ exports.createProject = async (req, res, next) => {
       createdBy: user._id,
     });
 
-    project.save();
+    await project.save();
     projects.push(project._id);
-    user.save();
+    await user.save();
 
     const projectId = project._id.toString();
 
@@ -107,19 +110,29 @@ exports.updateProject = async (req, res, next) => {
       return;
     }
 
-    project.unicodePaths = unicodePaths;
-    project.save();
-
-    if (exportType) {
-      const buffer = await getBufferByFontType(
+    if (exportType === "otf") {
+      const otfBuffer = await convertPathToOtfBuffer(
         project.name,
-        unicodePaths,
-        exportType
+        unicodePaths
       );
 
-      res.send(buffer);
+      res.send(otfBuffer);
       return;
     }
+
+    if (exportType === "ttf") {
+      const otfBuffer = await convertPathToOtfBuffer(
+        project.name,
+        unicodePaths
+      );
+      const ttfBuffer = await convertOtfBufferToTtfBuffer(otfBuffer);
+
+      res.send(ttfBuffer);
+      return;
+    }
+
+    project.unicodePaths = unicodePaths;
+    await project.save();
 
     res.sendStatus(200);
   } catch (err) {
@@ -140,7 +153,9 @@ exports.getProjectList = async (req, res, next) => {
       return;
     }
 
-    res.status(200).json({ result: user.projects });
+    const { projects } = user;
+
+    res.status(200).json({ result: projects });
   } catch (err) {
     console.error(err);
     next(createError(500, "An unexpected error occurred on the server."));

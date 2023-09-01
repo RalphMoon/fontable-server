@@ -1,11 +1,18 @@
 const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
-const ttf2woff = require("ttf2woff");
-const { Path, Glyph, Font } = require("opentype.js");
+const { Path, Glyph, load } = require("opentype.js");
 
 const convertPathToOtfBuffer = async (name, unicodePaths) => {
   try {
+    const resolvedPath = path.resolve(
+      "src",
+      "assets",
+      "fonts",
+      "NotoSans-Medium.otf"
+    );
+    const font = await load(resolvedPath);
+
     const glyphPaths = unicodePaths
       .filter(({ pathString }) => !!pathString)
       .map(({ unicode, pathString }) => {
@@ -58,24 +65,28 @@ const convertPathToOtfBuffer = async (name, unicodePaths) => {
       return glyph;
     });
 
-    const font = new Font({
-      familyName: name,
-      styleName: "Medium",
-      unitsPerEm: 1000,
-      ascender: 800,
-      descender: -200,
-      glyphs,
+    glyphs.forEach((glyph) => {
+      const glyphIndex = font.charToGlyphIndex(glyph.name);
+
+      font.glyphs[glyphIndex] = glyph;
+      font.glyphs.glyphs[glyphIndex] = glyph;
     });
 
-    const buffer = Buffer.from(font.toArrayBuffer());
+    font.tables.name.fontFamily.en = name;
+    font.names.fontFamily.en = name;
+    font.names.fullName.en = name;
+    font.names.preferredFamily.en = name;
+    font.names.postScriptName.en = name;
 
-    return buffer;
+    const otfBuffer = Buffer.from(font.toArrayBuffer());
+
+    return otfBuffer;
   } catch (err) {
     throw err;
   }
 };
 
-const convertBufferToTtf = async (buffer) =>
+const convertOtfBufferToTtfFile = (buffer) =>
   new Promise((resolve, reject) => {
     const tempFilePath = path.resolve("src", "assets", "fonts", "TestSans.ttf");
     fs.writeFile(tempFilePath, buffer, (err) => {
@@ -87,46 +98,25 @@ const convertBufferToTtf = async (buffer) =>
     });
   });
 
-const readFileToBuffer = async (filePath) => {
+const readTempFileToBufferAndDelete = async (filePath) => {
   try {
     const buffer = await fsPromises.readFile(filePath);
 
+    fs.unlinkSync(filePath);
     return buffer;
   } catch (err) {
     throw err;
   }
 };
 
-const convertTtfToWoff = async (filePath) => {
-  try {
-    const ttf = await fsPromises.readFile(filePath);
-    const woff = ttf2woff(ttf);
+const convertOtfBufferToTtfBuffer = async (buffer) => {
+  const ttfTempFile = await convertOtfBufferToTtfFile(buffer);
+  const ttfBuffer = await readTempFileToBufferAndDelete(ttfTempFile);
 
-    return woff.buffer;
-  } catch (err) {
-    throw err;
-  }
+  return ttfBuffer;
 };
 
-exports.getBufferByFontType = async (name, unicodePaths, fontType) => {
-  try {
-    let buffer = await convertPathToOtfBuffer(name, unicodePaths);
-
-    if (fontType === "ttf") {
-      const filePath = await convertBufferToTtf(buffer);
-
-      buffer = await readFileToBuffer(filePath);
-      fs.unlinkSync(filePath);
-    } else if (fontType === "woff") {
-      const filePath = await convertBufferToTtf(buffer);
-
-      buffer = await convertTtfToWoff(filePath);
-      fs.unlinkSync(filePath);
-    }
-
-    return buffer;
-  } catch (err) {
-    console.error(err);
-    throw err;
-  }
+module.exports = {
+  convertPathToOtfBuffer,
+  convertOtfBufferToTtfBuffer,
 };
