@@ -91,12 +91,17 @@ exports.updateProject = async (req, res, next) => {
   try {
     const { user_id: userId, project_id: projectId } = req.params;
     const { export_type: exportType } = req.query;
-    const { unicodePaths } = req.body;
+    const { char } = req.body;
     const user = await User.findOne({ uid: userId });
     const project = await Project.findById(projectId);
 
     if (!user) {
       next(createError(401, "You are not authorized to access this resource."));
+      return;
+    }
+
+    if (!char) {
+      next(createError(400, "Field 'char' is required"));
       return;
     }
 
@@ -110,34 +115,63 @@ exports.updateProject = async (req, res, next) => {
       return;
     }
 
+    const { name, unicodePaths } = project;
+
     if (exportType === "otf") {
-      const otfBuffer = await convertPathToOtfBuffer(
-        project.name,
-        unicodePaths
-      );
+      const otfBuffer = await convertPathToOtfBuffer(name, unicodePaths);
 
       res.send(otfBuffer);
       return;
     }
 
     if (exportType === "ttf") {
-      const otfBuffer = await convertPathToOtfBuffer(
-        project.name,
-        unicodePaths
-      );
+      const otfBuffer = await convertPathToOtfBuffer(name, unicodePaths);
       const ttfBuffer = await convertOtfBufferToTtfBuffer(otfBuffer);
 
       res.send(ttfBuffer);
       return;
     }
 
-    project.unicodePaths = unicodePaths;
+    const unicodeData = unicodePaths.find(
+      (unicodePath) => unicodePath.unicode === char.unicode
+    );
+
+    unicodeData.pathString = char.pathString;
     await project.save();
 
     res.sendStatus(200);
   } catch (err) {
     console.error(err);
     next(createError(500, "An unexpected error occurred on the server."));
+  }
+};
+
+exports.deleteProject = async (req, res, next) => {
+  try {
+    const { user_id: userId, project_id: projectId } = req.params;
+    const userExists = await User.exists({ uid: userId });
+
+    if (!userExists) {
+      next(createError(401, "You are not authorized to access this resource."));
+      return;
+    }
+
+    const deletedProject = await Project.findByIdAndDelete(projectId);
+
+    if (!deletedProject) {
+      next(
+        createError(
+          404,
+          "The specified project_id does not exist or is not accessible."
+        )
+      );
+      return;
+    }
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error(err);
+    next(err);
   }
 };
 
