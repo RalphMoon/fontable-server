@@ -12,7 +12,9 @@ const { corsOptions } = require("./configs/cors.config");
 
 const app = express();
 
-connectDB();
+if (process.env.NODE_ENV === "development") {
+  connectDB();
+}
 
 app.use(logger("dev"));
 app.use(express.json());

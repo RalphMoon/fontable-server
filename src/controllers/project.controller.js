@@ -1,4 +1,5 @@
 const createError = require("http-errors");
+const mongoose = require("mongoose");
 
 const User = require("../models/User.model");
 const Project = require("../models/Project.model");
@@ -10,6 +11,12 @@ const {
 exports.getProject = async (req, res, next) => {
   try {
     const { user_id: userId, project_id: projectId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      next(createError(404, "The specified project_id is invalid."));
+      return;
+    }
+
     const user = await User.findOne({ uid: userId }).populate({
       path: "projects",
       match: { _id: projectId },
