@@ -97,6 +97,12 @@ exports.createProject = async (req, res, next) => {
 exports.updateProject = async (req, res, next) => {
   try {
     const { user_id: userId, project_id: projectId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      next(createError(404, "The specified project_id is invalid."));
+      return;
+    }
+
     const { export_type: exportType } = req.query;
     const { char } = req.body;
     const user = await User.findOne({ uid: userId });

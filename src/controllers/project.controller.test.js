@@ -117,7 +117,7 @@ describe("Project Controller Test Suite", () => {
 
           const projectCount = await Project.countDocuments();
 
-          expect(projectCount).toStrictEqual(projectCount);
+          expect(projectCount).toStrictEqual(0);
           return done();
         });
     });
@@ -136,7 +136,7 @@ describe("Project Controller Test Suite", () => {
 
           const projectCount = await Project.countDocuments();
 
-          expect(projectCount).toStrictEqual(projectCount);
+          expect(projectCount).toStrictEqual(0);
           return done();
         });
     });
@@ -186,6 +186,136 @@ describe("Project Controller Test Suite", () => {
           expect(res.body).toHaveProperty(
             "message",
             "The specified project_id is invalid."
+          );
+
+          return done();
+        });
+    });
+
+    it("should NOT update a project with irrelevant ObjectId", (done) => {
+      const mongooseId = new mongoose.Types.ObjectId();
+
+      request(app)
+        .get(`/users/${userId}/projects/${mongooseId}`)
+        .expect(404)
+        .end(async (err, res) => {
+          if (err) return done(err);
+
+          expect(res.body).toHaveProperty(
+            "message",
+            "The specified project_id does not exist or is not accessible."
+          );
+
+          return done();
+        });
+    });
+  });
+
+  describe("PUT `/users/:user_id/projects/:project_id`", () => {
+    beforeEach(() => createUserAndProject());
+    afterEach(() => removeAllUsersAndProjects());
+
+    const char = {
+      unicode: 65,
+      pathString: "path for the test",
+    };
+
+    it("should update a project with a char property for request body", (done) => {
+      request(app)
+        .put(`/users/${userId}/projects/${projectId}`)
+        .send({ char })
+        .expect(200)
+        .end(async (err, res) => {
+          if (err) return done(err);
+
+          const { unicodePaths } = await Project.findOne({});
+          const unicodeData = unicodePaths.find(
+            ({ unicode }) => unicode === char.unicode
+          );
+
+          expect(unicodeData.pathString).toStrictEqual(char.pathString);
+
+          return done(err);
+        });
+    });
+
+    it("should NOT update a project without a char property for request body", (done) => {
+      request(app)
+        .put(`/users/${userId}/projects/${projectId}`)
+        .expect(400)
+        .end(async (err, res) => {
+          if (err) return done(err);
+
+          expect(res.body).toHaveProperty(
+            "message",
+            "Field 'char' is required"
+          );
+
+          const { unicodePaths } = await Project.findOne({});
+          const unicodeData = unicodePaths.find(
+            ({ unicode }) => unicode === char.unicode
+          );
+
+          expect(unicodeData.pathString).toStrictEqual("");
+
+          return done(err);
+        });
+    });
+
+    it("should NOT update a project with invalid user_id", (done) => {
+      request(app)
+        .put(`/users/invalid-user-id/projects/${projectId}`)
+        .send({ char })
+        .expect(401)
+        .end(async (err, res) => {
+          if (err) return done(err);
+
+          expect(res.body).toHaveProperty(
+            "message",
+            "You are not authorized to access this resource."
+          );
+
+          const { unicodePaths } = await Project.findOne({});
+          const unicodeData = unicodePaths.find(
+            ({ unicode }) => unicode === char.unicode
+          );
+
+          expect(unicodeData.pathString).not.toEqual(char.pathString);
+
+          return done();
+        });
+    });
+
+    it("should NOT update a project with invalid project_id", (done) => {
+      request(app)
+        .put(`/users/${userId}/projects/invalid-project-id`)
+        .send({ char })
+        .expect(404)
+        .end(async (err, res) => {
+          if (err) return done(err);
+
+          expect(res.body).toHaveProperty(
+            "message",
+            "The specified project_id is invalid."
+          );
+
+          return done();
+        });
+    });
+
+    it("should NOT update a project with irrelevant ObjectId", (done) => {
+      const mongooseId = new mongoose.Types.ObjectId();
+
+      request(app)
+        .put(`/users/${userId}/projects/${mongooseId}`)
+        .send({ char })
+        .expect(404)
+        .end(async (err, res) => {
+          if (err) return done(err);
+
+          expect(res.body).toHaveProperty(
+            "message",
+            "The specified project_id does not exist or is not accessible."
           );
 
           return done();
