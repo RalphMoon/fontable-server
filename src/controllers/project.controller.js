@@ -150,7 +150,7 @@ exports.updateProject = async (req, res, next) => {
       (unicodePath) => unicodePath.unicode === char.unicode
     );
 
-    unicodeData.pathString = char.pathString;
+    unicodeData.paths = char.paths;
     await project.save();
 
     res.sendStatus(200);
@@ -163,14 +163,22 @@ exports.updateProject = async (req, res, next) => {
 exports.deleteProject = async (req, res, next) => {
   try {
     const { user_id: userId, project_id: projectId } = req.params;
-    const userExists = await User.exists({ uid: userId });
+    const user = await User.findOne({ uid: userId }).populate({
+      path: "projects",
+      match: { _id: projectId },
+    });
 
-    if (!userExists) {
+    if (!user) {
       next(createError(401, "You are not authorized to access this resource."));
       return;
     }
 
     const deletedProject = await Project.findByIdAndDelete(projectId);
+
+    user.projects = user.projects.filter(
+      (project) => project._id.toString() !== projectId
+    );
+    await user.save();
 
     if (!deletedProject) {
       next(
