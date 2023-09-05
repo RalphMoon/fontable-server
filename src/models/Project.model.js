@@ -2,7 +2,9 @@ const mongoose = require("mongoose");
 
 const pathSchema = new mongoose.Schema({
   unicode: { type: Number, required: true, immutable: true },
-  pathString: { type: String },
+  pathString: { type: [] },
+  advancedWidth: { type: Number },
+  baselineYOffset: { type: Number },
 });
 
 const projectSchema = new mongoose.Schema(
@@ -13,7 +15,7 @@ const projectSchema = new mongoose.Schema(
       type: [pathSchema],
       default: Array.from({ length: 94 }, (_, index) => ({
         unicode: index + 33,
-        pathString: "",
+        pathString: [],
       })),
     },
   },

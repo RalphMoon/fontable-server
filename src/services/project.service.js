@@ -55,11 +55,7 @@ const convertPathToOtfBuffer = async (name, unicodePaths) => {
         name: String.fromCharCode(unicode),
         unicode,
         path: glyphPath,
-        xMin: 100,
-        xMax: 300,
-        yMin: 100,
-        yMax: 300,
-        advanceWidth: 300,
+        advanceWidth: 1000,
       });
 
       return glyph;
@@ -116,7 +112,32 @@ const convertOtfBufferToTtfBuffer = async (buffer) => {
   return ttfBuffer;
 };
 
+const appendFontBufferToEachProject = async (projects) => {
+  try {
+    const clonedProjects = JSON.parse(JSON.stringify(projects));
+    const bufferPromises = [];
+
+    projects.forEach(async ({ name, unicodePaths }) => {
+      const bufferPromise = convertPathToOtfBuffer(name, unicodePaths);
+
+      bufferPromises.push(bufferPromise);
+    });
+
+    const otfBuffers = await Promise.all(bufferPromises);
+
+    for (let i = 0; i < clonedProjects.length - 1; i += 1) {
+      clonedProjects[i].file = otfBuffers[i];
+    }
+
+    return clonedProjects;
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+};
+
 module.exports = {
   convertPathToOtfBuffer,
   convertOtfBufferToTtfBuffer,
+  appendFontBufferToEachProject,
 };
