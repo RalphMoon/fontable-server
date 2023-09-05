@@ -14,48 +14,48 @@ const convertPathToOtfBuffer = async (name, unicodePaths) => {
     const font = await load(resolvedPath);
 
     const glyphPaths = unicodePaths
-      .filter(({ pathString }) => !!pathString)
-      .map(({ unicode, pathString }) => {
+      .filter(({ paths }) => !!paths[0])
+      .map(({ unicode, paths, advanceWidth }) => {
         const glyphPath = new Path();
 
-        const directions = pathString
-          .split("M")
-          .slice(1)
-          .map((stroke) => stroke.trim().split(" Q "));
+        paths.forEach((coordinates) => {
+          const [start, ...rest] = coordinates.map(([x, y]) => [
+            3.3 * x,
+            698 - 1.745 * y,
+          ]);
 
-        const points = directions.map((direction) =>
-          direction.map((coordinates) => {
-            const positions = coordinates.split(" ");
+          glyphPath.moveTo(...start);
 
-            return positions.map((position, index) => {
-              if (index % 2 !== 0) {
-                return 800 - parseFloat(position);
-              }
+          for (let i = 0; i < rest.length - 1; i += 1) {
+            const firstCommandPoint = rest[i];
+            const secondCommandPoint = rest[i + 1] || firstCommandPoint;
 
-              return parseFloat(position);
-            });
-          })
-        );
+            glyphPath.quadraticCurveTo(
+              ...firstCommandPoint,
+              ...secondCommandPoint
+            );
+          }
 
-        points.forEach((direction) => {
-          const [movePoint, ...qCurvePoints] = direction;
+          for (let i = rest.length - 1; i >= 0; i -= 1) {
+            const reversedFirstControlPoint = rest[i];
+            const reversedSecondControlPoint = rest[i - 1] || start;
 
-          glyphPath.moveTo(...movePoint);
-
-          qCurvePoints.forEach((qCurvePoint) => {
-            glyphPath.quadraticCurveTo(...qCurvePoint);
-          });
+            glyphPath.quadraticCurveTo(
+              ...reversedFirstControlPoint,
+              ...reversedSecondControlPoint
+            );
+          }
         });
 
-        return { unicode, glyphPath };
+        return { unicode, glyphPath, advanceWidth };
       });
 
-    const glyphs = glyphPaths.map(({ unicode, glyphPath }) => {
+    const glyphs = glyphPaths.map(({ unicode, glyphPath, advanceWidth }) => {
       const glyph = new Glyph({
         name: String.fromCharCode(unicode),
         unicode,
         path: glyphPath,
-        advanceWidth: 1000,
+        advanceWidth,
       });
 
       return glyph;
@@ -78,6 +78,7 @@ const convertPathToOtfBuffer = async (name, unicodePaths) => {
 
     return otfBuffer;
   } catch (err) {
+    console.error(err);
     throw err;
   }
 };
