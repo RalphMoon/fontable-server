@@ -6,6 +6,7 @@ const Project = require("../models/Project.model");
 const {
   convertPathToOtfBuffer,
   convertOtfBufferToTtfBuffer,
+  appendFontBufferToEachProject,
 } = require("../services/project.service");
 
 exports.getProject = async (req, res, next) => {
@@ -201,8 +202,11 @@ exports.getProjectList = async (req, res, next) => {
     }
 
     const { projects } = user;
+    const projectsWithFontBuffer = await appendFontBufferToEachProject(
+      projects
+    );
 
-    res.status(200).json({ result: projects });
+    res.status(200).json({ result: projectsWithFontBuffer });
   } catch (err) {
     console.error(err);
     next(createError(500, "An unexpected error occurred on the server."));
