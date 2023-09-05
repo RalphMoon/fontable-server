@@ -1,12 +1,18 @@
 const createError = require("http-errors");
-
-const loginService = require("../services/login.service");
+const User = require("../models/User.model");
 
 exports.createUser = async (req, res, next) => {
   try {
     const { uid, name, email } = req.body.decodedToken;
+    let user = await User.findOne({ email }).select("-createdAt");
 
-    await loginService.createUser({ uid, name, email });
+    if (!user) {
+      user = new User({
+        uid,
+        name,
+        email,
+      }).save();
+    }
 
     res.sendStatus(200);
   } catch (err) {
